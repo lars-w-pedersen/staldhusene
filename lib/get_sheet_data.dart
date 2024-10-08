@@ -8,9 +8,10 @@ class Allergens {
   final bool milk;
   final bool nuts;
   final bool freshFruit;
+  final bool onions;
   final bool carrots;
 
-  const Allergens(this.meat, this.gluten, this.lactose, this.milk, this.nuts, this.freshFruit, this.carrots);
+  const Allergens(this.meat, this.gluten, this.lactose, this.milk, this.nuts, this.freshFruit, this.onions, this.carrots);
 }
 
 class Participation {
@@ -102,21 +103,20 @@ class GoogleSheetsApiData {
       var houseColumn = response.values![5];
 
       var menuColumn = response.values![23];
-      var meatAllergenColumn = response.values![24];
-      var glutenAllergenColumn = response.values![25];
-      var lactoseAllergenColumn = response.values![26];
-      var milkAllergenColumn = response.values![27];
-      var nutsAllergenColumn = response.values![28];
-      var freshFruitAllergenColumn = response.values![29];
-      var carrotsAllergenColumn = response.values![30];
 
 
       List<DinnerEvent> list = [];
 
-      for (int i=2;i<dateColumn.length && i<houseColumn.length;i++) {
+      for (int i=2;i<dateColumn.length && i<houseColumn.length;i++)
+      {
         var date = getDate(dateColumn[i] as String);
-        if (houseColumn[i] as String != "" && DateTime.now().subtract(const Duration(days: 1)).isBefore(date)) {
-          list.add(DinnerEvent(getDinnerEventDateAsString(date), menuColumn[i] as String, isEditable(date, int.parse(daysBeforeColumn[i] as String), int.parse(timeOfDayBeforeColumn[i] as String)), Allergens(meatAllergenColumn[i] as String == "TRUE", true, true, true, false, false, false), null));
+        if (houseColumn[i] as String != "" && nowIsBeforeOrSameDay(date))
+        {
+          bool editable = isEditable(date, int.parse(daysBeforeColumn[i] as String), int.parse(timeOfDayBeforeColumn[i] as String));
+
+          var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "P47!D${i+1}:O${i+1}");
+
+          list.add(DinnerEvent(getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), getParticipation(participationRowResponse.values![0])));
         }
       }
 
@@ -125,6 +125,63 @@ class GoogleSheetsApiData {
       // Close the HTTP client to release resources
       client.close();
     }
+  }
+
+  Participation? getParticipation(List<Object?> values)
+  {
+    int adultsParticipants = int.tryParse(values[0] as String) ?? 0;
+    int childrenParticipants = int.tryParse(values[1] as String) ?? 0;
+    int adultsTakeaway = int.tryParse(values[2] as String) ?? 0;
+    int childrenTakeaway = int.tryParse(values[3] as String) ?? 0;
+
+    bool isTakeaway = (adultsTakeaway + childrenTakeaway) > 0;
+    bool isParticipation = (adultsParticipants + childrenParticipants) > 0;
+
+    if (!isParticipation && !isTakeaway) {
+      return null;
+    }
+
+    int adults = isTakeaway ? adultsTakeaway : adultsParticipants;
+    int children = isTakeaway ? childrenTakeaway : childrenParticipants;
+    return Participation(adults, children, isTakeaway, getAllergensParticipant(values));
+  }
+
+  Allergens getAllergensParticipant(List<Object?> values) {
+    var meatAllergen = values[4] as String == "TRUE";
+    var glutenAllergen = values[5] as String == "TRUE";
+    var lactoseAllergen = values[6] as String == "TRUE";
+    var milkAllergen = values[7] as String == "TRUE";
+    var nutsAllergen = values[8] as String == "TRUE";
+    var freshFruitAllergen = values[9] as String == "TRUE";
+    var onionsAllergen = values[10] as String == "TRUE";
+    var carrotsAllergen = values[11] as String == "TRUE";
+
+    return Allergens(meatAllergen, glutenAllergen, lactoseAllergen, milkAllergen, nutsAllergen, freshFruitAllergen, onionsAllergen, carrotsAllergen);
+  }
+
+  bool nowIsBeforeOrSameDay(DateTime date) {
+    return DateTime.now().subtract(const Duration(days: 1)).isBefore(date);
+  }
+
+  Allergens getAllergensCook(List<List<Object?>>? values, int index) {
+    var meatAllergenColumn = values![24];
+    var glutenAllergenColumn = values[25];
+    var lactoseAllergenColumn = values[26];
+    var milkAllergenColumn = values[27];
+    var nutsAllergenColumn = values[28];
+    var freshFruitAllergenColumn = values[29];
+    var onionsAllergenColumn = values[30];
+    var carrotsAllergenColumn = values[31];
+
+    return Allergens(
+        meatAllergenColumn[index] as String == "TRUE",
+        glutenAllergenColumn[index] as String == "TRUE",
+        lactoseAllergenColumn[index] as String == "TRUE",
+        milkAllergenColumn[index] as String == "TRUE",
+        nutsAllergenColumn[index] as String == "TRUE",
+        freshFruitAllergenColumn[index] as String == "TRUE",
+        onionsAllergenColumn[index] as String == "TRUE",
+        carrotsAllergenColumn[index] as String == "TRUE");
   }
 
   bool isEditable(DateTime dinnerEventDate, int daysBefore, int hourOfDayBefore) {
