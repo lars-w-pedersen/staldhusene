@@ -1,5 +1,6 @@
 import 'package:googleapis/sheets/v4.dart';
 import 'package:googleapis_auth/auth_io.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Allergens {
   final bool meat;
@@ -72,7 +73,13 @@ class GoogleSheetsApiData {
     }
   }
 
-  Future<List<DinnerEvent>> accessGoogleSheetData() async {
+  Future<List<DinnerEvent>> accessGoogleSheetData(String houseNumber) async {
+
+    final SharedPreferencesAsync asyncPrefs = SharedPreferencesAsync();
+    //await asyncPrefs.setString('houseNumber', 'P47');
+    houseNumber = await asyncPrefs.getString('houseNumber') ?? "";
+
+
     extractIdFromUrl(url);
 
     // Your Google Sheets API credentials
@@ -114,9 +121,13 @@ class GoogleSheetsApiData {
         {
           bool editable = isEditable(date, int.parse(daysBeforeColumn[i] as String), int.parse(timeOfDayBeforeColumn[i] as String));
 
-          var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "P47!D${i+1}:O${i+1}");
+          Participation? p;
+          if (houseNumber != "") {
+            var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "$houseNumber!D${i+1}:O${i+1}");
+            p = getParticipation(participationRowResponse.values![0]);
+          }
 
-          list.add(DinnerEvent(getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), getParticipation(participationRowResponse.values![0])));
+          list.add(DinnerEvent(getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), p));
         }
       }
 

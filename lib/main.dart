@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'get_sheet_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<List<DinnerEvent>> fetchDinnerEvents() async {
 
@@ -38,20 +39,16 @@ kHEIoS0UqyZqdcMCZpaOo8o=
       clientId: '104866680526764500509',
       privateKey: privateKey,
       url: 'https://docs.google.com/spreadsheets/d/16ASTBB0dUuX_EIiz_MhSeDRf_HaYixi5wk3EDa15Xa4'
-  ).accessGoogleSheetData();
-
+  ).accessGoogleSheetData(_houseNumber);
 
   return response;
-
-    /*[
-    DinnerEvent('I dag', 'her: $response', false, Allergens(true, true, true, true, false, false, false), Participation(p, 1, false, Allergens(true, false, false, false, false, false, false))),
-    DinnerEvent('Onsdag', 'Bønne burritos med super grøn salat', true, Allergens(true, true, true, true, false, false, false), Participation(1, 2, true, Allergens(true, false, false, false, false, false, false))),
-    DinnerEvent('Torsdag', 'Ris taffel med kylling og en vegetar variant', false, Allergens(true, true, true, true, false, false, false), null),
-    DinnerEvent('Tirsdag d. 4/10', 'Ris taffel med kylling og en vegetar variant', true, Allergens(true, true, true, true, false, false, false), null)
-  ];*/
 }
 
-void main() => runApp(const MyApp());
+String _houseNumber = "";
+
+void main() async {
+  runApp(const MyApp());
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -70,12 +67,52 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    SharedPreferencesAsync().getString('houseNumber').then((value) {
+      _houseNumber = value ?? '';
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Fællesspisning',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      initialRoute: _houseNumber == "" ? '/init' : '/',
+      routes: <String, WidgetBuilder>{
+        '/init': (BuildContext context) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text("Vælg din addresse"),
+            ),
+            body: Center(
+              child: DropdownMenu<String>(
+                label: const Text('Husnummer'),
+                onSelected: (String? value) {
+
+                  _houseNumber = value!;
+                  SharedPreferencesAsync().setString('houseNumber', value);
+
+                  setState(() {
+                    dinnerEvents = fetchDinnerEvents();
+                  });
+                  Navigator.pop(context);
+                },
+                dropdownMenuEntries: [
+                  DropdownMenuEntry<String>(value: 'P1', label: 'Pilotvej 1'),
+                  DropdownMenuEntry<String>(value: 'P2', label: 'Pilotvej 2'),
+                  DropdownMenuEntry<String>(value: 'P3', label: 'Pilotvej 3'),
+                  DropdownMenuEntry<String>(value: 'P4', label: 'Pilotvej 4'),
+                  DropdownMenuEntry<String>(value: 'P5', label: 'Pilotvej 5'),
+                ],
+              ),
+            ),
+          );
+        }
+      },
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Fællesspisning'),
@@ -141,14 +178,7 @@ class DetailScreen extends StatefulWidget {
   }
 }
 
-// Create a corresponding State class.
-// This class holds data related to the form.
 class DetailScreenState extends State<DetailScreen> {
-  // Create a global key that uniquely identifies the Form widget
-  // and allows validation of the form.
-  //
-  // Note: This is a GlobalKey<FormState>,
-  // not a GlobalKey<MyCustomFormState>.
   final _formKey = GlobalKey<FormState>();
 
   @override
