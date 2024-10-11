@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'get_sheet_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 Future<List<DinnerEvent>> fetchDinnerEvents() async {
 
@@ -232,54 +233,215 @@ class DetailScreen extends StatefulWidget {
 
 class DetailScreenState extends State<DetailScreen> {
   final _formKey = GlobalKey<FormState>();
+  String _adults = '';
+  String _children = '';
+  bool _takeaway = false;
+  bool _meat = false;
+  bool _gluten = false;
+  bool _lactose = false;
+  bool _milk = false;
+  bool _nuts = false;
+  bool _freshFruit = false;
+  bool _onions = false;
+  bool _carrots = false;
+
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save(); // Save the form data
+      Navigator.pop(context, true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final dinnerEvent = ModalRoute.of(context)!.settings.arguments as DinnerEvent;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(dinnerEvent.date),
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(dinnerEvent.menu),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter some text';
-                      }
-                      return null;
-                    },
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          Navigator.pop(context, true);
-                        }
-                      },
-                      child: const Text('Tilmeld'),
-                    ),
-                  ),
-                ],
+        appBar: AppBar(
+          title: Text(dinnerEvent.date),
+        ),
+        body: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(dinnerEvent.menu),
               ),
-            )
-          )
-        ],
-      )
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: TextFormField(
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: 'Voksne',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter some text';
+                            }
+                            return null;
+                          },
+                          onSaved: (value) {
+                            _adults = value!;
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: TextFormField(
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: 'Børn',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter some text';
+                            }
+                            return null;
+                          },
+                          onSaved: (value) {
+                            _children = value!;
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: CheckboxListTile(
+                          title: const Text('Takeaway'),
+                          value: _takeaway,
+                          shape: OutlineInputBorder(),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: (bool? newValue) {
+                            setState(() {
+                              _takeaway = newValue!;
+                            });
+                          },
+
+                        ),
+                      ),
+
+                      Container(
+                        margin: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          border: Border.all(),
+                          borderRadius: BorderRadius.all(
+                              Radius.circular(5.0)
+                          ),
+                        ),
+                        child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              CheckboxListTile(
+                                title: const Text('Kød'),
+                                value: _meat,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _meat = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Gluten'),
+                                value: _gluten,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _gluten = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Laktose'),
+                                value: _lactose,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _lactose = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Mælkeprodukter'),
+                                value: _milk,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _milk = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Hasselnødder, Valnødder og Pekannød'),
+                                value: _nuts,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _nuts = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Friske æbler / Stenfrugt / Rosiner'),
+                                value: _freshFruit,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _freshFruit = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Løg, Hvidløg, Forårsløg, Porre.'),
+                                value: _onions,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _onions = newValue!;
+                                  });
+                                },
+                              ),
+                              CheckboxListTile(
+                                title: const Text('Gulerødder'),
+                                value: _carrots,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (bool? newValue) {
+                                  setState(() {
+                                    _carrots = newValue!;
+                                  });
+                                },
+                              ),
+                            ]
+                        ),
+                      ),
+
+
+
+
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: ElevatedButton(
+                          onPressed: _submitForm,
+                          child: const Text('Tilmeld'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ]
+        )
     );
   }
 }
