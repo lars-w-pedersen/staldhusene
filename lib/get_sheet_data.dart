@@ -73,13 +73,7 @@ class GoogleSheetsApiData {
     }
   }
 
-  Future<List<DinnerEvent>> accessGoogleSheetData(String houseNumber) async {
-
-    final SharedPreferencesAsync asyncPrefs = SharedPreferencesAsync();
-    //await asyncPrefs.setString('houseNumber', 'P47');
-    houseNumber = await asyncPrefs.getString('houseNumber') ?? "";
-
-
+  Future<List<DinnerEvent>> accessGoogleSheetData() async {
     extractIdFromUrl(url);
 
     // Your Google Sheets API credentials
@@ -111,6 +105,7 @@ class GoogleSheetsApiData {
 
       var menuColumn = response.values![23];
 
+      String houseNumber = await SharedPreferencesAsync().getString('houseNumber') ?? '';
 
       List<DinnerEvent> list = [];
 
