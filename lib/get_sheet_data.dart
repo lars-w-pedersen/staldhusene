@@ -29,13 +29,14 @@ class Participation {
 }
 
 class DinnerEvent {
+  final int index;
   final String date;
   final String menu;
   final bool editable;
   final Allergens chefCanAvoid;
   final Participation? participation;
 
-  const DinnerEvent(this.date, this.menu, this.editable, this.chefCanAvoid, this.participation);
+  const DinnerEvent(this.index, this.date, this.menu, this.editable, this.chefCanAvoid, this.participation);
 
   String participationText() {
     if (participation != null) {
@@ -48,18 +49,48 @@ class DinnerEvent {
   }
 }
 
-class GoogleSheetsApiData {
-  String url;
-  String clientId;
-  String? spreadsheetId;
-  String clientEmail;
-  String privateKey;
+class DinnerInformation {
+  final List<DinnerEvent> events;
+  final String? houseNumber;
 
-  GoogleSheetsApiData(
-      {required this.clientEmail,
-        required this.clientId,
-        required this.privateKey,
-        required this.url});
+  const DinnerInformation(this.events, this.houseNumber);
+}
+
+class GoogleSheetsApiData {
+  final String url = 'https://docs.google.com/spreadsheets/d/16ASTBB0dUuX_EIiz_MhSeDRf_HaYixi5wk3EDa15Xa4';
+  final String clientId = '104866680526764500509';
+  String? spreadsheetId;
+  final String clientEmail = 'staldhusene-app-service-acc@staldhusene-app.iam.gserviceaccount.com';
+  final String privateKey = """-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDOIeZUXNCwGhLF
+ixtvPTBFIBf4epMT18BdFwqGmLYG8zli95nxyofpIvkCZ9uEi/t5xOF0O4j6LRCg
+414vMr4/jsIAEjDvD054GHR489XY4NBso8gc1/HO4Ht2q3usoeFqPUBWwkU9riBB
+ZoG00xR2YTds3DJsARz+PoixIC2qUy+ei9S3aZs07AZ5PBQO5yRjUkQ7VsWtLit3
+5jOt8rmoenNGS8fp065uXrtpq99bW973NEnlPRFYYxrfaIHvtIjxBYlvuwIjdctY
+ITco5ZoO0CSheUSgtLA2gHRHrai2Az1adHo2HjPwSjmnBnaI95nfaWGvR2RigxeG
+h3/857B9AgMBAAECggEAFNs7Odf2SYsp0REFIpk3VBcuNbb5QK24yfJ13y5+ZG+h
+o9DXo65RWBZwyXyGqn+bXzO7eA46Cs4ae5zlv7LLqxSfrnAowVd0IhSfXEmXno0I
+qaVcrwZucfcmptgs+EeczioKY3zekqIWo2diwlAFJwEpIXuaInFuZI8hN4LA/BWl
++EP+4LnKTTT9PucmK5Mpq3TNh94v2hcHLKvq+EsJcRhUIEmlIrQ+7qV6QHmZWqS7
+UdznxwumpqJGSIBRD7+JFbrEOLw03xPvHAz92WTawztZUGY5Dv7w0JJ4HLgf5jVC
+ggHQBSyZnK0PVOsC1n68ySLHJy2B9b+WSglaQV8cQQKBgQD6XjXP42mlkQNGnapm
+i9StDhfBC9Uv9d/1CWFPd+MNGhDoFtZ0KQ2A1MEBJmf1vdqmotiviIkApIviDSH+
+MJpiUDt1jea8WBXjGhbJBJQ0HqjRYOucy2fFhWrVKiVq5KRVopcn2a/gFLQDGRQk
+QXEKGAH66AAjuXg8BXo0CsNSUQKBgQDSxPNphlYW9TQNp29ajqQoZbIADUXo8Ok/
+DXVsj7SSpW4+wl1ztKzxiE34a87TVHU2/nMW8oTSktXCE4k0fBjEeuIrh1Gkrae1
+SER/k791m+jqe9UPXhVeh7nTzldNmFe8PKifa5RTHRN9tQqxCfbvOBz+2fA6ZWvV
+67JxtrZkbQKBgF3o1HpjrI7js7zbCr1oGZ/Ht3U7gP16VkTM/ekW6N1TN6A2YL41
+X9FA/Bv4UepFCiySzIAa0HijP6zMjEGR7XaO7Z6MWU2wJJWIhZ9kzko2bdALcJTh
+Xs0h3A6UvnA3zsQoNlZGOsfsPBElaP6oZUQJ+UQpnVPJD6ZDz7CRkO3hAoGBAJt0
+7Nw+Wy0fuj7/6h/u6aFqMLndEF1Zo5AAC0YBUHyBTCk6DteSwaR8lpXOXoR83N+t
+GZIpWlI+Py+gXSi7B0GUKVFVw6Ak/Xe2T9+RSDwkvMyGfYWSLUzF6wgQP1BaNwv9
+6Zl8LbCH16J2b+ZYpSuYRbqrYIaR29GywLEixLCZAoGAD08kW0k+s71y2YSNDPzX
+jZXXjtdpvxGwdtJsTCXVtekbScGxkmc6WmyhDYCsls2VZh25MkiYsWwgVZAKORk4
+M9IQHxtcPvUaT5IIzsXqjhFWGoIcVEnavcEkcY9PfKSIEBLhWxJFFn9D42heFwBK
+kHEIoS0UqyZqdcMCZpaOo8o=
+-----END PRIVATE KEY-----""";
+
+  GoogleSheetsApiData();
 
   void extractIdFromUrl(String url) {
     Uri uri = Uri.parse(url);
@@ -73,7 +104,68 @@ class GoogleSheetsApiData {
     }
   }
 
-  Future<List<DinnerEvent>> accessGoogleSheetData() async {
+  Future<void> updateDinnerEventParticipation(int index, Participation participation, String houseNumber) async {
+    extractIdFromUrl(url);
+
+    // Your Google Sheets API credentials
+    final credentials = ServiceAccountCredentials.fromJson({
+      'client_id': clientId,
+      // Your service account email
+      'client_email': clientEmail,
+      // Your private key
+      'private_key': privateKey,
+      // Google Sheets API scope
+      'scopes': [SheetsApi.spreadsheetsScope],
+      'type': 'service_account'
+    });
+
+    final client = await clientViaServiceAccount(
+        credentials, [SheetsApi.spreadsheetsScope]);
+
+    // Google Sheets API instance
+    final sheets = SheetsApi(client);
+    // Spreadsheet ID and range
+
+    try {
+      Object adultCount = participation.adults == 0 ? '' : participation.adults;
+      Object childrenCount = participation.children == 0 ? '' : participation.children;
+
+      List<Object> values = [
+        participation.takeaway ? '' : adultCount,
+        participation.takeaway ? '' : childrenCount,
+        participation.takeaway ? adultCount : '',
+        participation.takeaway ? childrenCount : '',
+        participation.allergens.meat,
+        participation.allergens.gluten,
+        participation.allergens.lactose,
+        participation.allergens.milk,
+        participation.allergens.nuts,
+        participation.allergens.freshFruit,
+        participation.allergens.onions,
+        participation.allergens.carrots,
+      ];
+
+      await sheets.spreadsheets.values.update(
+          ValueRange(range: "$houseNumber!D${index+1}:O${index+1}", majorDimension: "ROWS", values: [values]),
+          spreadsheetId!,
+          "$houseNumber!D${index+1}:O${index+1}",
+          valueInputOption: 'USER_ENTERED'
+      );
+    } finally {
+      // Close the HTTP client to release resources
+      client.close();
+    }
+  }
+
+  Future<DinnerInformation> accessGoogleSheetData(String? houseNumber) async {
+
+    List<DinnerEvent> list = [];
+    houseNumber ??= await SharedPreferencesAsync().getString('houseNumber');
+
+    if(houseNumber == null) {
+      return DinnerInformation(list, null);
+    }
+
     extractIdFromUrl(url);
 
     // Your Google Sheets API credentials
@@ -105,28 +197,21 @@ class GoogleSheetsApiData {
 
       var menuColumn = response.values![23];
 
-      String houseNumber = await SharedPreferencesAsync().getString('houseNumber') ?? '';
-
-      List<DinnerEvent> list = [];
+      var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "$houseNumber!D:O");
 
       for (int i=2;i<dateColumn.length && i<houseColumn.length;i++)
       {
         var date = getDate(dateColumn[i] as String);
         if (houseColumn[i] as String != "" && nowIsBeforeOrSameDay(date))
         {
+          Participation? p = getParticipation(participationRowResponse.values![i]);
           bool editable = isEditable(date, int.parse(daysBeforeColumn[i] as String), int.parse(timeOfDayBeforeColumn[i] as String));
 
-          Participation? p;
-          if (houseNumber != "") {
-            var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "$houseNumber!D${i+1}:O${i+1}");
-            p = getParticipation(participationRowResponse.values![0]);
-          }
-
-          list.add(DinnerEvent(getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), p));
+          list.add(DinnerEvent(i, getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), p));
         }
       }
 
-      return list;
+      return DinnerInformation(list, houseNumber);
     } finally {
       // Close the HTTP client to release resources
       client.close();
