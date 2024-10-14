@@ -52,12 +52,21 @@ class DinnerEvent {
 class DinnerInformation {
   final List<DinnerEvent> events;
   final String? houseNumber;
+  final PrefillInformation? prefillInformation;
 
-  const DinnerInformation(this.events, this.houseNumber);
+  const DinnerInformation(this.events, this.houseNumber, this.prefillInformation);
+}
+
+class PrefillInformation {
+  final int? adults;
+  final int? children;
+  final Allergens? allergens;
+
+  const PrefillInformation(this.adults, this.children, this.allergens);
 }
 
 class GoogleSheetsApiData {
-  final String url = 'https://docs.google.com/spreadsheets/d/16ASTBB0dUuX_EIiz_MhSeDRf_HaYixi5wk3EDa15Xa4';
+  final String url = 'https://docs.google.com/spreadsheets/d/1emwEYlB8GEi7Cn7hpNelwRktI2Ebze7MBXuz62N5buw';
   final String clientId = '104866680526764500509';
   String? spreadsheetId;
   final String clientEmail = 'staldhusene-app-service-acc@staldhusene-app.iam.gserviceaccount.com';
@@ -151,6 +160,21 @@ kHEIoS0UqyZqdcMCZpaOo8o=
           "$houseNumber!D${index+1}:O${index+1}",
           valueInputOption: 'USER_ENTERED'
       );
+
+      if(participation.adults != 0) {
+        var sharedPreferences = SharedPreferencesAsync();
+        await sharedPreferences.setInt('adultCount', participation.adults);
+        await sharedPreferences.setInt('childrenCount', participation.children);
+        await sharedPreferences.setBool('meat', participation.allergens.meat);
+        await sharedPreferences.setBool('gluten', participation.allergens.gluten);
+        await sharedPreferences.setBool('lactose', participation.allergens.lactose);
+        await sharedPreferences.setBool('milk', participation.allergens.milk);
+        await sharedPreferences.setBool('nuts', participation.allergens.nuts);
+        await sharedPreferences.setBool('freshFruit', participation.allergens.freshFruit);
+        await sharedPreferences.setBool('onions', participation.allergens.onions);
+        await sharedPreferences.setBool('carrots', participation.allergens.carrots);
+      }
+
     } finally {
       // Close the HTTP client to release resources
       client.close();
@@ -160,11 +184,27 @@ kHEIoS0UqyZqdcMCZpaOo8o=
   Future<DinnerInformation> accessGoogleSheetData(String? houseNumber) async {
 
     List<DinnerEvent> list = [];
-    houseNumber ??= await SharedPreferencesAsync().getString('houseNumber');
+    var sharedPreferences = SharedPreferencesAsync();
+    houseNumber ??= await sharedPreferences.getString('houseNumber');
 
     if(houseNumber == null) {
-      return DinnerInformation(list, null);
+      return DinnerInformation(list, null, null);
     }
+
+    var prefillInformation = PrefillInformation(
+      await sharedPreferences.getInt('adultCount'),
+      await sharedPreferences.getInt('childrenCount'),
+      Allergens(
+        await sharedPreferences.getBool('meat') ?? false,
+        await sharedPreferences.getBool('gluten') ?? false,
+        await sharedPreferences.getBool('lactose') ?? false,
+        await sharedPreferences.getBool('milk') ?? false,
+        await sharedPreferences.getBool('nuts') ?? false,
+        await sharedPreferences.getBool('freshFruit') ?? false,
+        await sharedPreferences.getBool('onions') ?? false,
+        await sharedPreferences.getBool('carrots') ?? false
+      )
+    );
 
     extractIdFromUrl(url);
 
@@ -211,7 +251,7 @@ kHEIoS0UqyZqdcMCZpaOo8o=
         }
       }
 
-      return DinnerInformation(list, houseNumber);
+      return DinnerInformation(list, houseNumber, prefillInformation);
     } finally {
       // Close the HTTP client to release resources
       client.close();
