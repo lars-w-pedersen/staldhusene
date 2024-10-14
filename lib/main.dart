@@ -40,13 +40,22 @@ class _MyAppState extends State<MyApp> {
     dinnerEvents = fetchDinnerEvents();
   }
 
+  final ThemeData lightTheme = ThemeData(
+    brightness: Brightness.light,
+    primaryColor: Colors.blue,
+  );
+  final ThemeData darkTheme = ThemeData(
+    brightness: Brightness.dark,
+    primaryColor: Colors.grey[900],
+  );
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Fællesspisning',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      themeMode: ThemeMode.system,
+      darkTheme: darkTheme,
+      theme: lightTheme,
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Fællesspisning'),
@@ -195,7 +204,7 @@ class DetailScreenState extends State<DetailScreen> {
       _formKey.currentState!.save(); // Save the form data
 
       final dinnerEvent = ModalRoute.of(context)!.settings.arguments as DinnerEvent;
-      var participation = Participation(int.parse(_adults!), int.parse(_children!), _takeaway!, Allergens(_meat!, _gluten!, _lactose!, _milk!, _nuts!, _freshFruit!, _onions!, _carrots!));
+      var participation = Participation(int.parse(_adults!), _children == null || _children!.isEmpty ? 0 : int.parse(_children!), _takeaway!, Allergens(_meat!, _gluten!, _lactose!, _milk!, _nuts!, _freshFruit!, _onions!, _carrots!));
 
       updateDinnerEventParticipation(dinnerEvent.index, participation);
 
@@ -252,10 +261,11 @@ class DetailScreenState extends State<DetailScreen> {
                   decoration: InputDecoration(
                     labelText: 'Voksne',
                     border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide:  BorderSide(color: Theme.of(context).colorScheme.onPrimaryContainer)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter some text';
+                      return 'Tilføj et antal voksne';
                     }
                     return null;
                   },
@@ -273,22 +283,17 @@ class DetailScreenState extends State<DetailScreen> {
                   decoration: InputDecoration(
                     labelText: 'Børn',
                     border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(borderSide:  BorderSide(color: Theme.of(context).colorScheme.onPrimaryContainer))
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter some text';
-                    }
-                    return null;
-                  },
                   onSaved: (value) {
-                    _children = value!;
+                    _children = value;
                   },
                 ),
               ),
               CheckboxListTile(
                 title: const Text('Takeaway'),
                 value: _takeaway,
-                shape: OutlineInputBorder(borderSide: const BorderSide(color: Colors.black54)),
+                shape: OutlineInputBorder(borderSide:  BorderSide(color: Theme.of(context).colorScheme.onPrimaryContainer)),
                 controlAffinity: ListTileControlAffinity.leading,
                 onChanged: (bool? newValue) {
                   setState(() {
@@ -299,7 +304,7 @@ class DetailScreenState extends State<DetailScreen> {
               Container(
                 margin: const EdgeInsets.only(top: 8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black54),
+                  border: Border.all(color: Theme.of(context).colorScheme.onPrimaryContainer),
                   borderRadius: BorderRadius.all(
                       Radius.circular(4.0)
                   ),
