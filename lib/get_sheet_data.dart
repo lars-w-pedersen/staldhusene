@@ -52,17 +52,9 @@ class DinnerEvent {
 class DinnerInformation {
   final List<DinnerEvent> events;
   final String? houseNumber;
-  final PrefillInformation? prefillInformation;
+  final Participation? prefillInformation;
 
   const DinnerInformation(this.events, this.houseNumber, this.prefillInformation);
-}
-
-class PrefillInformation {
-  final int? adults;
-  final int? children;
-  final Allergens? allergens;
-
-  const PrefillInformation(this.adults, this.children, this.allergens);
 }
 
 class GoogleSheetsApiData {
@@ -113,7 +105,7 @@ kHEIoS0UqyZqdcMCZpaOo8o=
     }
   }
 
-  Future<void> updateDinnerEventParticipation(int index, Participation participation, String houseNumber) async {
+  Future<DinnerInformation> updateDinnerEventParticipation(int index, Participation participation, String houseNumber) async {
     extractIdFromUrl(url);
 
     // Your Google Sheets API credentials
@@ -161,6 +153,7 @@ kHEIoS0UqyZqdcMCZpaOo8o=
           valueInputOption: 'USER_ENTERED'
       );
 
+      Participation? prefillInformation;
       if(participation.adults != 0) {
         var sharedPreferences = SharedPreferencesAsync();
         await sharedPreferences.setInt('adultCount', participation.adults);
@@ -173,7 +166,11 @@ kHEIoS0UqyZqdcMCZpaOo8o=
         await sharedPreferences.setBool('freshFruit', participation.allergens.freshFruit);
         await sharedPreferences.setBool('onions', participation.allergens.onions);
         await sharedPreferences.setBool('carrots', participation.allergens.carrots);
+
+        prefillInformation = participation;
       }
+
+      return await accessGoogleSheetData(houseNumber, prefillInformation, client);
 
     } finally {
       // Close the HTTP client to release resources
@@ -181,7 +178,7 @@ kHEIoS0UqyZqdcMCZpaOo8o=
     }
   }
 
-  Future<DinnerInformation> accessGoogleSheetData(String? houseNumber) async {
+  Future<DinnerInformation> accessGoogleSheetData(String? houseNumber, Participation? prefillInformation, AutoRefreshingAuthClient? client) async {
 
     List<DinnerEvent> list = [];
     var sharedPreferences = SharedPreferencesAsync();
@@ -191,41 +188,50 @@ kHEIoS0UqyZqdcMCZpaOo8o=
       return DinnerInformation(list, null, null);
     }
 
-    var prefillInformation = PrefillInformation(
-      await sharedPreferences.getInt('adultCount'),
-      await sharedPreferences.getInt('childrenCount'),
-      Allergens(
-        await sharedPreferences.getBool('meat') ?? false,
-        await sharedPreferences.getBool('gluten') ?? false,
-        await sharedPreferences.getBool('lactose') ?? false,
-        await sharedPreferences.getBool('milk') ?? false,
-        await sharedPreferences.getBool('nuts') ?? false,
-        await sharedPreferences.getBool('freshFruit') ?? false,
-        await sharedPreferences.getBool('onions') ?? false,
-        await sharedPreferences.getBool('carrots') ?? false
-      )
-    );
+    if(prefillInformation == null) {
+      int? adultCount = await sharedPreferences.getInt('adultCount');
+      if(adultCount != null) {
+        prefillInformation = Participation(
+            adultCount,
+            await sharedPreferences.getInt('childrenCount') ?? 0,
+            false,
+            Allergens(
+                await sharedPreferences.getBool('meat') ?? false,
+                await sharedPreferences.getBool('gluten') ?? false,
+                await sharedPreferences.getBool('lactose') ?? false,
+                await sharedPreferences.getBool('milk') ?? false,
+                await sharedPreferences.getBool('nuts') ?? false,
+                await sharedPreferences.getBool('freshFruit') ?? false,
+                await sharedPreferences.getBool('onions') ?? false,
+                await sharedPreferences.getBool('carrots') ?? false
+            )
+        );
+      }
+    }
 
-    extractIdFromUrl(url);
+    bool closeClient = false;
+    if(client == null) {
+      extractIdFromUrl(url);
 
-    // Your Google Sheets API credentials
-    final credentials = ServiceAccountCredentials.fromJson({
-      'client_id': clientId,
-      // Your service account email
-      'client_email': clientEmail,
-      // Your private key
-      'private_key': privateKey,
-      // Google Sheets API scope
-      'scopes': [SheetsApi.spreadsheetsReadonlyScope],
-      'type': 'service_account'
-    });
+      // Your Google Sheets API credentials
+      final credentials = ServiceAccountCredentials.fromJson({
+        'client_id': clientId,
+        // Your service account email
+        'client_email': clientEmail,
+        // Your private key
+        'private_key': privateKey,
+        // Google Sheets API scope
+        'scopes': [SheetsApi.spreadsheetsReadonlyScope],
+        'type': 'service_account'
+      });
 
-    final client = await clientViaServiceAccount(
-        credentials, [SheetsApi.spreadsheetsReadonlyScope]);
+      client = await clientViaServiceAccount(
+          credentials, [SheetsApi.spreadsheetsReadonlyScope]);
+      closeClient = true;
+    }
 
     // Google Sheets API instance
-    final sheets = SheetsApi(client);
-    // Spreadsheet ID and range
+    var sheets = SheetsApi(client);
 
     try {
       var response = await sheets.spreadsheets.values.get(spreadsheetId!, "KOK!A:AF", majorDimension: 'COLUMNS');
@@ -253,8 +259,10 @@ kHEIoS0UqyZqdcMCZpaOo8o=
 
       return DinnerInformation(list, houseNumber, prefillInformation);
     } finally {
-      // Close the HTTP client to release resources
-      client.close();
+      if(closeClient) {
+        // Close the HTTP client to release resources
+        client.close();
+      }
     }
   }
 

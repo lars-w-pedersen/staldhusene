@@ -4,11 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
 String? _houseNumber;
-PrefillInformation? _prefillInformation;
+Participation? _prefillInformation;
 
 Future<DinnerInformation> fetchDinnerEvents() async {
 
-  var response = await GoogleSheetsApiData().accessGoogleSheetData(_houseNumber);
+  var response = await GoogleSheetsApiData().accessGoogleSheetData(_houseNumber, _prefillInformation, null);
 
   _houseNumber = response.houseNumber;
   _prefillInformation = response.prefillInformation;
@@ -16,8 +16,13 @@ Future<DinnerInformation> fetchDinnerEvents() async {
   return response;
 }
 
-Future<void> updateDinnerEventParticipation(int index, Participation participation) async {
-  await GoogleSheetsApiData().updateDinnerEventParticipation(index, participation, _houseNumber!);
+Future<DinnerInformation> updateDinnerEventParticipation(int index, Participation participation) async {
+  var response = await GoogleSheetsApiData().updateDinnerEventParticipation(index, participation, _houseNumber!);
+
+  _houseNumber = response.houseNumber;
+  _prefillInformation = response.prefillInformation;
+
+  return response;
 }
 
 void main() async {
@@ -155,7 +160,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _navigateAndDisplaySelection(BuildContext context, DinnerEvent dinnerEvent) async {
-    final result = await Navigator.push(
+    final Participation? participation = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const DetailScreen(),
@@ -167,9 +172,9 @@ class _MyAppState extends State<MyApp> {
 
     if (!context.mounted) return;
 
-    if (result) {
+    if (participation != null) {
       setState(() {
-        dinnerEvents = fetchDinnerEvents();
+        dinnerEvents = updateDinnerEventParticipation(dinnerEvent.index, participation);
       });
     }
   }
@@ -203,39 +208,32 @@ class DetailScreenState extends State<DetailScreen> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save(); // Save the form data
 
-      final dinnerEvent = ModalRoute.of(context)!.settings.arguments as DinnerEvent;
       var participation = Participation(int.parse(_adults!), _children == null || _children!.isEmpty ? 0 : int.parse(_children!), _takeaway!, Allergens(_meat!, _gluten!, _lactose!, _milk!, _nuts!, _freshFruit!, _onions!, _carrots!));
 
-      updateDinnerEventParticipation(dinnerEvent.index, participation);
-
-      Navigator.pop(context, true);
+      Navigator.pop(context, participation);
     }
   }
 
   void _deleteParticipation() {
-    final dinnerEvent = ModalRoute.of(context)!.settings.arguments as DinnerEvent;
     var participation = Participation(0, 0, false, Allergens(false, false, false, false, false, false, false, false));
-
-    updateDinnerEventParticipation(dinnerEvent.index, participation);
-
-    Navigator.pop(context, true);
+    Navigator.pop(context, participation);
   }
 
   @override
   Widget build(BuildContext context) {
     final dinnerEvent = ModalRoute.of(context)!.settings.arguments as DinnerEvent;
 
-    _adults = _adults ?? dinnerEvent.participation?.adults.toString() ?? _prefillInformation?.adults?.toString() ?? '';
-    _children = _children ?? dinnerEvent.participation?.children.toString() ?? _prefillInformation?.children?.toString() ?? '';
+    _adults = _adults ?? dinnerEvent.participation?.adults.toString() ?? _prefillInformation?.adults.toString() ?? '';
+    _children = _children ?? dinnerEvent.participation?.children.toString() ?? (_prefillInformation == null || _prefillInformation?.children == 0 ? '' : _prefillInformation?.children.toString()) ?? '';
     _takeaway = _takeaway ?? dinnerEvent.participation?.takeaway ?? false;
-    _meat = _meat ?? dinnerEvent.participation?.allergens.meat ?? (dinnerEvent.chefCanAvoid.meat ? _prefillInformation?.allergens?.meat : false) ?? false;
-    _gluten = _gluten ?? dinnerEvent.participation?.allergens.gluten ?? (dinnerEvent.chefCanAvoid.gluten ? _prefillInformation?.allergens?.gluten : false) ?? false;
-    _lactose = _lactose ?? dinnerEvent.participation?.allergens.lactose ?? (dinnerEvent.chefCanAvoid.lactose ? _prefillInformation?.allergens?.lactose : false) ?? false;
-    _milk = _milk ?? dinnerEvent.participation?.allergens.milk ?? (dinnerEvent.chefCanAvoid.milk ? _prefillInformation?.allergens?.milk : false) ?? false;
-    _nuts = _nuts ?? dinnerEvent.participation?.allergens.nuts ?? (dinnerEvent.chefCanAvoid.nuts ? _prefillInformation?.allergens?.nuts : false) ?? false;
-    _freshFruit = _freshFruit ?? dinnerEvent.participation?.allergens.freshFruit ?? (dinnerEvent.chefCanAvoid.freshFruit ? _prefillInformation?.allergens?.freshFruit : false) ?? false;
-    _onions = _onions ?? dinnerEvent.participation?.allergens.onions ?? (dinnerEvent.chefCanAvoid.onions ? _prefillInformation?.allergens?.onions : false) ?? false;
-    _carrots = _carrots ?? dinnerEvent.participation?.allergens.carrots ?? (dinnerEvent.chefCanAvoid.carrots ? _prefillInformation?.allergens?.carrots : false) ?? false;
+    _meat = _meat ?? dinnerEvent.participation?.allergens.meat ?? (dinnerEvent.chefCanAvoid.meat ? _prefillInformation?.allergens.meat : false) ?? false;
+    _gluten = _gluten ?? dinnerEvent.participation?.allergens.gluten ?? (dinnerEvent.chefCanAvoid.gluten ? _prefillInformation?.allergens.gluten : false) ?? false;
+    _lactose = _lactose ?? dinnerEvent.participation?.allergens.lactose ?? (dinnerEvent.chefCanAvoid.lactose ? _prefillInformation?.allergens.lactose : false) ?? false;
+    _milk = _milk ?? dinnerEvent.participation?.allergens.milk ?? (dinnerEvent.chefCanAvoid.milk ? _prefillInformation?.allergens.milk : false) ?? false;
+    _nuts = _nuts ?? dinnerEvent.participation?.allergens.nuts ?? (dinnerEvent.chefCanAvoid.nuts ? _prefillInformation?.allergens.nuts : false) ?? false;
+    _freshFruit = _freshFruit ?? dinnerEvent.participation?.allergens.freshFruit ?? (dinnerEvent.chefCanAvoid.freshFruit ? _prefillInformation?.allergens.freshFruit : false) ?? false;
+    _onions = _onions ?? dinnerEvent.participation?.allergens.onions ?? (dinnerEvent.chefCanAvoid.onions ? _prefillInformation?.allergens.onions : false) ?? false;
+    _carrots = _carrots ?? dinnerEvent.participation?.allergens.carrots ?? (dinnerEvent.chefCanAvoid.carrots ? _prefillInformation?.allergens.carrots : false) ?? false;
 
     return Scaffold(
       appBar: AppBar(
