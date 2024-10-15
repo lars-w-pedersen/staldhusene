@@ -47,11 +47,11 @@ class _MyAppState extends State<MyApp> {
 
   final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
-    primaryColor: Colors.blue,
+    primaryColor: Colors.white,
   );
   final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-    primaryColor: Colors.grey[900],
+    primaryColor: Colors.black,
   );
 
   @override
@@ -138,6 +138,7 @@ class _MyAppState extends State<MyApp> {
                           child: ListTile(
                             title: Text('${snapshot.data!.events[index].date}: ${snapshot.data!.events[index].participationText()}'),
                             subtitle: Text(snapshot.data!.events[index].menu),
+                            tileColor: snapshot.data!.events[index].participation == null ? Theme.of(context).colorScheme.secondaryContainer : Theme.of(context).colorScheme.primaryContainer,
                             enabled: snapshot.data!.events[index].editable,
                             onTap: () {
                               _navigateAndDisplaySelection(context, snapshot.data!.events[index]);
