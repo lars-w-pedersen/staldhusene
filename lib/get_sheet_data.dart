@@ -36,7 +36,7 @@ class GoogleSheetsApiData {
         participation.allergens.carrots,
       ];
 
-      String range = "$houseNumber!D${index+1}:O${index+1}";
+      String range = "P$houseNumber!D${index+1}:O${index+1}";
       await sheets.spreadsheets.values.update(ValueRange(range: range, majorDimension: "ROWS", values: [values]), spreadsheetId, range, valueInputOption: 'USER_ENTERED');
 
       Participation? prefillInformation;
@@ -89,7 +89,7 @@ class GoogleSheetsApiData {
       var menuColumn = response.values![23]; // X: column with the menu of the dinner event
 
       // Get all participation data from the house sheet
-      var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId, "$houseNumber!D:O");
+      var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId, "P$houseNumber!D:O");
 
       for (int i=2;i<dateColumn.length && i<houseColumn.length;i++)
       {

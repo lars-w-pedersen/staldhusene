@@ -35,9 +35,29 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late Future<DinnerInformation> dinnerEvents;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if(state == AppLifecycleState.resumed) {
+      setState(() {
+        dinnerEvents = fetchDinnerEvents();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -94,6 +114,7 @@ class _MyAppState extends State<MyApp> {
                               title: Text('${snapshot.data!.events[index].date}: ${snapshot.data!.events[index].participationText()}'),
                               subtitle: Text(snapshot.data!.events[index].menu),
                               enabled: snapshot.data!.events[index].editable,
+                              textColor: getTileTextColor(snapshot.data!.events[index], Theme.of(context).brightness == Brightness.dark),
                               onTap: () {
                                 _navigateAndDisplaySelection(context, snapshot.data!.events[index]);
                               },
@@ -111,13 +132,40 @@ class _MyAppState extends State<MyApp> {
             },
           ),
         ),
+        bottomNavigationBar: buildBottomBar(),
       ),
+    );
+  }
+
+  Color? getTileTextColor(DinnerEvent dinnerEvent, bool isDarkTheme) {
+    if(dinnerEvent.participation != null) {
+      return isDarkTheme ? Colors.green.shade300 : Colors.green;
+    }
+
+    return null;
+  }
+
+  Widget buildBottomBar() {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: FutureBuilder<DinnerInformation>(
+        future: dinnerEvents,
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.connectionState == ConnectionState.done) {
+            if(snapshot.data!.houseNumber != null) {
+              return Text('Husnummer: Pilotvej ${snapshot.data!.houseNumber}');
+            }
+          }
+          return Text('');
+        },
+      )
     );
   }
 
   DropdownMenu<String> buildHouseNumberDropdownMenu() {
     return DropdownMenu<String>(
       label: const Text('Husnummer'),
+      width: 200,
       onSelected: (String? value) {
         globals.houseNumber = value!;
         SharedPreferencesAsync().setString('houseNumber', value);
@@ -125,50 +173,12 @@ class _MyAppState extends State<MyApp> {
           dinnerEvents = fetchDinnerEvents();
         });
       },
-      dropdownMenuEntries: [
-        DropdownMenuEntry<String>(value: 'P3', label: 'Pilotvej 3'),
-        DropdownMenuEntry<String>(value: 'P4', label: 'Pilotvej 4'),
-        DropdownMenuEntry<String>(value: 'P5', label: 'Pilotvej 5'),
-        DropdownMenuEntry<String>(value: 'P6', label: 'Pilotvej 6'),
-        DropdownMenuEntry<String>(value: 'P7', label: 'Pilotvej 7'),
-        DropdownMenuEntry<String>(value: 'P8', label: 'Pilotvej 8'),
-        DropdownMenuEntry<String>(value: 'P9', label: 'Pilotvej 9'),
-        DropdownMenuEntry<String>(value: 'P10', label: 'Pilotvej 10'),
-        DropdownMenuEntry<String>(value: 'P11', label: 'Pilotvej 11'),
-        DropdownMenuEntry<String>(value: 'P12', label: 'Pilotvej 12'),
-        DropdownMenuEntry<String>(value: 'P13', label: 'Pilotvej 13'),
-        DropdownMenuEntry<String>(value: 'P14', label: 'Pilotvej 14'),
-        DropdownMenuEntry<String>(value: 'P15', label: 'Pilotvej 15'),
-        DropdownMenuEntry<String>(value: 'P16', label: 'Pilotvej 16'),
-        DropdownMenuEntry<String>(value: 'P17', label: 'Pilotvej 17'),
-        DropdownMenuEntry<String>(value: 'P18', label: 'Pilotvej 18'),
-        DropdownMenuEntry<String>(value: 'P19', label: 'Pilotvej 19'),
-        DropdownMenuEntry<String>(value: 'P20', label: 'Pilotvej 20'),
-        DropdownMenuEntry<String>(value: 'P21', label: 'Pilotvej 21'),
-        DropdownMenuEntry<String>(value: 'P23', label: 'Pilotvej 23'),
-        DropdownMenuEntry<String>(value: 'P24', label: 'Pilotvej 24'),
-        DropdownMenuEntry<String>(value: 'P25', label: 'Pilotvej 25'),
-        DropdownMenuEntry<String>(value: 'P26', label: 'Pilotvej 26'),
-        DropdownMenuEntry<String>(value: 'P27', label: 'Pilotvej 27'),
-        DropdownMenuEntry<String>(value: 'P28', label: 'Pilotvej 28'),
-        DropdownMenuEntry<String>(value: 'P29', label: 'Pilotvej 29'),
-        DropdownMenuEntry<String>(value: 'P30', label: 'Pilotvej 30'),
-        DropdownMenuEntry<String>(value: 'P31', label: 'Pilotvej 31'),
-        DropdownMenuEntry<String>(value: 'P32', label: 'Pilotvej 32'),
-        DropdownMenuEntry<String>(value: 'P33', label: 'Pilotvej 33'),
-        DropdownMenuEntry<String>(value: 'P35', label: 'Pilotvej 35'),
-        DropdownMenuEntry<String>(value: 'P37', label: 'Pilotvej 37'),
-        DropdownMenuEntry<String>(value: 'P39', label: 'Pilotvej 39'),
-        DropdownMenuEntry<String>(value: 'P41', label: 'Pilotvej 41'),
-        DropdownMenuEntry<String>(value: 'P43', label: 'Pilotvej 43'),
-        DropdownMenuEntry<String>(value: 'P45', label: 'Pilotvej 45'),
-        DropdownMenuEntry<String>(value: 'P47', label: 'Pilotvej 47'),
-        DropdownMenuEntry<String>(value: 'P49', label: 'Pilotvej 49'),
-        DropdownMenuEntry<String>(value: 'P51', label: 'Pilotvej 51'),
-        DropdownMenuEntry<String>(value: 'P53', label: 'Pilotvej 53'),
-        DropdownMenuEntry<String>(value: 'P55', label: 'Pilotvej 55'),
-        DropdownMenuEntry<String>(value: 'P57', label: 'Pilotvej 57'),
-      ]
+      dropdownMenuEntries: houses.map<DropdownMenuEntry<String>>((int number) {
+            return DropdownMenuEntry<String>(
+              value: '$number',
+              label: 'Pilotvej $number',
+            );
+          }).toList(),
     );
   }
 

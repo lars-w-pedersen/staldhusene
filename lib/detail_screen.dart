@@ -111,19 +111,26 @@ class DetailScreenState extends State<DetailScreen> {
                     },
                   ),
                 ),
-                CheckboxListTile(
-                  title: const Text('Takeaway'),
-                  value: _takeaway,
-                  shape: OutlineInputBorder(borderSide:  BorderSide(color: Theme.of(context).colorScheme.onPrimaryContainer)),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (bool? newValue) {
-                    setState(() {
-                      _takeaway = newValue!;
-                    });
-                  },
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(4.0)
+                    ),
+                  ),
+                  child: CheckboxListTile(
+                    title: const Text('Takeaway'),
+                    value: _takeaway,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (bool? newValue) {
+                      setState(() {
+                        _takeaway = newValue!;
+                      });
+                    },
+                  ),
                 ),
                 Container(
-                  margin: const EdgeInsets.only(top: 8),
                   decoration: BoxDecoration(
                     border: Border.all(color: Theme.of(context).colorScheme.onPrimaryContainer),
                     borderRadius: BorderRadius.all(
@@ -131,13 +138,13 @@ class DetailScreenState extends State<DetailScreen> {
                     ),
                   ),
                   child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
                         CheckboxListTile(
                           title: const Text('Kød'),
                           value: _meat,
                           enabled: dinnerEvent.chefCanAvoid.meat,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _meat = newValue!;
@@ -149,6 +156,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _gluten,
                           enabled: dinnerEvent.chefCanAvoid.gluten,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _gluten = newValue!;
@@ -160,6 +168,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _lactose,
                           enabled: dinnerEvent.chefCanAvoid.lactose,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _lactose = newValue!;
@@ -171,6 +180,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _milk,
                           enabled: dinnerEvent.chefCanAvoid.milk,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _milk = newValue!;
@@ -182,6 +192,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _nuts,
                           enabled: dinnerEvent.chefCanAvoid.nuts,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _nuts = newValue!;
@@ -193,6 +204,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _freshFruit,
                           enabled: dinnerEvent.chefCanAvoid.freshFruit,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _freshFruit = newValue!;
@@ -204,6 +216,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _onions,
                           enabled: dinnerEvent.chefCanAvoid.onions,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _onions = newValue!;
@@ -215,6 +228,7 @@ class DetailScreenState extends State<DetailScreen> {
                           value: _carrots,
                           enabled: dinnerEvent.chefCanAvoid.carrots,
                           controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
                           onChanged: (bool? newValue) {
                             setState(() {
                               _carrots = newValue!;
