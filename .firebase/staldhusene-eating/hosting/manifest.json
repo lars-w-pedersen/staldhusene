@@ -1,6 +1,6 @@
 {
-    "name": "staldhusene",
-    "short_name": "staldhusene",
+    "name": "Fællesspisning",
+    "short_name": "Fællesspisning",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

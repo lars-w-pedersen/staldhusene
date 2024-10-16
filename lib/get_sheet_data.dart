@@ -1,68 +1,166 @@
 import 'package:googleapis/sheets/v4.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class Allergens {
-  final bool meat;
-  final bool gluten;
-  final bool lactose;
-  final bool milk;
-  final bool nuts;
-  final bool freshFruit;
-  final bool onions;
-  final bool carrots;
-
-  const Allergens(this.meat, this.gluten, this.lactose, this.milk, this.nuts, this.freshFruit, this.onions, this.carrots);
-}
-
-class Participation {
-  final int adults;
-  final int children;
-  final bool takeaway;
-  final Allergens allergens;
-
-  const Participation(this.adults, this.children, this.takeaway, this.allergens);
-
-  String participationText() {
-    return '${takeaway ? "Takeaway" : "Deltager"} ($adults ${adults == 1 ? 'voksen' : 'voksne'}, $children ${children == 1 ? 'barn' : 'børn'})';
-  }
-}
-
-class DinnerEvent {
-  final int index;
-  final String date;
-  final String menu;
-  final bool editable;
-  final Allergens chefCanAvoid;
-  final Participation? participation;
-
-  const DinnerEvent(this.index, this.date, this.menu, this.editable, this.chefCanAvoid, this.participation);
-
-  String participationText() {
-    if (participation != null) {
-      return participation!.participationText();
-    } else if (editable) {
-      return 'Tilmeld';
-    } else {
-      return 'Tilmelding lukket';
-    }
-  }
-}
-
-class DinnerInformation {
-  final List<DinnerEvent> events;
-  final String? houseNumber;
-  final Participation? prefillInformation;
-
-  const DinnerInformation(this.events, this.houseNumber, this.prefillInformation);
-}
+import 'models.dart';
 
 class GoogleSheetsApiData {
-  final String url = 'https://docs.google.com/spreadsheets/d/1emwEYlB8GEi7Cn7hpNelwRktI2Ebze7MBXuz62N5buw';
-  final String clientId = '104866680526764500509';
-  String? spreadsheetId;
-  final String clientEmail = 'staldhusene-app-service-acc@staldhusene-app.iam.gserviceaccount.com';
-  final String privateKey = """-----BEGIN PRIVATE KEY-----
+
+  /// Id of current 'Mad i Staldhusene' sheet.
+  String spreadsheetId = '1emwEYlB8GEi7Cn7hpNelwRktI2Ebze7MBXuz62N5buw';
+
+  /// Create, Update or Delete participation in a dinner event.
+  ///
+  /// Returns an updated list of Dinner Events.
+  Future<DinnerInformation> updateDinnerEventParticipation(int index, Participation participation, String houseNumber) async {
+    final client = await getClient();
+
+    // Google Sheets API instance
+    final sheets = SheetsApi(client);
+
+    try {
+      Object adultCount = participation.adults == 0 ? '' : participation.adults;
+      Object childrenCount = participation.children == 0 ? '' : participation.children;
+
+      List<Object> values = [
+        participation.takeaway ? '' : adultCount,
+        participation.takeaway ? '' : childrenCount,
+        participation.takeaway ? adultCount : '',
+        participation.takeaway ? childrenCount : '',
+        participation.allergens.meat,
+        participation.allergens.gluten,
+        participation.allergens.lactose,
+        participation.allergens.milk,
+        participation.allergens.nuts,
+        participation.allergens.freshFruit,
+        participation.allergens.onions,
+        participation.allergens.carrots,
+      ];
+
+      String range = "$houseNumber!D${index+1}:O${index+1}";
+      await sheets.spreadsheets.values.update(ValueRange(range: range, majorDimension: "ROWS", values: [values]), spreadsheetId, range, valueInputOption: 'USER_ENTERED');
+
+      Participation? prefillInformation;
+
+      // If adults is 0 the participation is deleted so we do not store prefill information.
+      if(participation.adults != 0) {
+        await savePrefillInformation(participation);
+        prefillInformation = participation;
+      }
+
+      // Get updated dinner event list
+      return await accessGoogleSheetData(houseNumber, prefillInformation, client);
+
+    } finally {
+      // Close the HTTP client to release resources
+      client.close();
+    }
+  }
+
+  /// Returns list of future Dinner Events.
+  Future<DinnerInformation> accessGoogleSheetData(String? houseNumber, Participation? prefillInformation, AutoRefreshingAuthClient? client) async {
+
+    List<DinnerEvent> list = [];
+    var sharedPreferences = SharedPreferencesAsync();
+    houseNumber ??= await sharedPreferences.getString('houseNumber');
+
+    // If no housenumber is set then return empty list
+    if(houseNumber == null) {
+      return DinnerInformation(list, null, null);
+    }
+
+    prefillInformation ??= await getPrefillInformation(sharedPreferences);
+
+    bool closeClient = false;
+    if(client == null) {
+      client = await getClient();
+      closeClient = true;
+    }
+
+    // Google Sheets API instance
+    var sheets = SheetsApi(client);
+
+    try {
+      var response = await sheets.spreadsheets.values.get(spreadsheetId, "KOK!A:AF", majorDimension: 'COLUMNS');
+
+      var dateColumn = response.values![0]; // A: column with date of event
+      var daysBeforeColumn = response.values![3]; // D: column specifying how many days before sign up closes
+      var timeOfDayBeforeColumn = response.values![4]; // E: column specifying time of day where sign up closes
+      var houseColumn = response.values![5]; // F: column specifying which house buys the food. This is used to figure out if a dinner event is planned on this date
+      var menuColumn = response.values![23]; // X: column with the menu of the dinner event
+
+      // Get all participation data from the house sheet
+      var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId, "$houseNumber!D:O");
+
+      for (int i=2;i<dateColumn.length && i<houseColumn.length;i++)
+      {
+        var date = parseDate(dateColumn[i] as String);
+        if (dinnerEventIsPlanned(houseColumn[i]) && isTodayOrInFuture(date))
+        {
+          Participation? participation = getParticipation(participationRowResponse.values![i]);
+          bool editable = isEditable(date, daysBeforeColumn[i], timeOfDayBeforeColumn[i]);
+
+          list.add(DinnerEvent(i, getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), participation));
+        }
+      }
+
+      return DinnerInformation(list, houseNumber, prefillInformation);
+    } finally {
+      if(closeClient) {
+        // Close the HTTP client to release resources
+        client.close();
+      }
+    }
+  }
+
+  bool dinnerEventIsPlanned(Object? houseColumnData) => houseColumnData as String != "";
+
+  Future<Participation?> getPrefillInformation(SharedPreferencesAsync sharedPreferences) async {
+    int? adultCount = await sharedPreferences.getInt('adultCount');
+
+    if(adultCount == null) {
+      // No saved prefill information
+      return null;
+    }
+
+    return Participation(
+        adultCount,
+        await sharedPreferences.getInt('childrenCount') ?? 0,
+        false, // We do not prefill takeaway
+        Allergens(
+            await sharedPreferences.getBool('meat') ?? false,
+            await sharedPreferences.getBool('gluten') ?? false,
+            await sharedPreferences.getBool('lactose') ?? false,
+            await sharedPreferences.getBool('milk') ?? false,
+            await sharedPreferences.getBool('nuts') ?? false,
+            await sharedPreferences.getBool('freshFruit') ?? false,
+            await sharedPreferences.getBool('onions') ?? false,
+            await sharedPreferences.getBool('carrots') ?? false
+        )
+    );
+  }
+
+  Future<void> savePrefillInformation(Participation participation) async {
+    var sharedPreferences = SharedPreferencesAsync();
+    await sharedPreferences.setInt('adultCount', participation.adults);
+    await sharedPreferences.setInt('childrenCount', participation.children);
+    await sharedPreferences.setBool('meat', participation.allergens.meat);
+    await sharedPreferences.setBool('gluten', participation.allergens.gluten);
+    await sharedPreferences.setBool('lactose', participation.allergens.lactose);
+    await sharedPreferences.setBool('milk', participation.allergens.milk);
+    await sharedPreferences.setBool('nuts', participation.allergens.nuts);
+    await sharedPreferences.setBool('freshFruit', participation.allergens.freshFruit);
+    await sharedPreferences.setBool('onions', participation.allergens.onions);
+    await sharedPreferences.setBool('carrots', participation.allergens.carrots);
+  }
+
+  Future<AutoRefreshingAuthClient> getClient() async {
+    // Your Google Sheets API credentials
+    final credentials = ServiceAccountCredentials.fromJson({
+      'client_id': '104866680526764500509',
+      // Your service account email
+      'client_email': 'staldhusene-app-service-acc@staldhusene-app.iam.gserviceaccount.com',
+      // Your private key
+      'private_key': """-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDOIeZUXNCwGhLF
 ixtvPTBFIBf4epMT18BdFwqGmLYG8zli95nxyofpIvkCZ9uEi/t5xOF0O4j6LRCg
 414vMr4/jsIAEjDvD054GHR489XY4NBso8gc1/HO4Ht2q3usoeFqPUBWwkU9riBB
@@ -89,181 +187,14 @@ GZIpWlI+Py+gXSi7B0GUKVFVw6Ak/Xe2T9+RSDwkvMyGfYWSLUzF6wgQP1BaNwv9
 jZXXjtdpvxGwdtJsTCXVtekbScGxkmc6WmyhDYCsls2VZh25MkiYsWwgVZAKORk4
 M9IQHxtcPvUaT5IIzsXqjhFWGoIcVEnavcEkcY9PfKSIEBLhWxJFFn9D42heFwBK
 kHEIoS0UqyZqdcMCZpaOo8o=
------END PRIVATE KEY-----""";
-
-  GoogleSheetsApiData();
-
-  void extractIdFromUrl(String url) {
-    Uri uri = Uri.parse(url);
-
-    // Extract spreadsheet ID
-    String path = uri.path;
-    List<String> pathSegments = path.split('/');
-
-    if (pathSegments.length > 2) {
-      spreadsheetId = pathSegments[3];
-    }
-  }
-
-  Future<DinnerInformation> updateDinnerEventParticipation(int index, Participation participation, String houseNumber) async {
-    extractIdFromUrl(url);
-
-    // Your Google Sheets API credentials
-    final credentials = ServiceAccountCredentials.fromJson({
-      'client_id': clientId,
-      // Your service account email
-      'client_email': clientEmail,
-      // Your private key
-      'private_key': privateKey,
+-----END PRIVATE KEY-----""",
       // Google Sheets API scope
       'scopes': [SheetsApi.spreadsheetsScope],
       'type': 'service_account'
     });
 
-    final client = await clientViaServiceAccount(
+    return await clientViaServiceAccount(
         credentials, [SheetsApi.spreadsheetsScope]);
-
-    // Google Sheets API instance
-    final sheets = SheetsApi(client);
-    // Spreadsheet ID and range
-
-    try {
-      Object adultCount = participation.adults == 0 ? '' : participation.adults;
-      Object childrenCount = participation.children == 0 ? '' : participation.children;
-
-      List<Object> values = [
-        participation.takeaway ? '' : adultCount,
-        participation.takeaway ? '' : childrenCount,
-        participation.takeaway ? adultCount : '',
-        participation.takeaway ? childrenCount : '',
-        participation.allergens.meat,
-        participation.allergens.gluten,
-        participation.allergens.lactose,
-        participation.allergens.milk,
-        participation.allergens.nuts,
-        participation.allergens.freshFruit,
-        participation.allergens.onions,
-        participation.allergens.carrots,
-      ];
-
-      await sheets.spreadsheets.values.update(
-          ValueRange(range: "$houseNumber!D${index+1}:O${index+1}", majorDimension: "ROWS", values: [values]),
-          spreadsheetId!,
-          "$houseNumber!D${index+1}:O${index+1}",
-          valueInputOption: 'USER_ENTERED'
-      );
-
-      Participation? prefillInformation;
-      if(participation.adults != 0) {
-        var sharedPreferences = SharedPreferencesAsync();
-        await sharedPreferences.setInt('adultCount', participation.adults);
-        await sharedPreferences.setInt('childrenCount', participation.children);
-        await sharedPreferences.setBool('meat', participation.allergens.meat);
-        await sharedPreferences.setBool('gluten', participation.allergens.gluten);
-        await sharedPreferences.setBool('lactose', participation.allergens.lactose);
-        await sharedPreferences.setBool('milk', participation.allergens.milk);
-        await sharedPreferences.setBool('nuts', participation.allergens.nuts);
-        await sharedPreferences.setBool('freshFruit', participation.allergens.freshFruit);
-        await sharedPreferences.setBool('onions', participation.allergens.onions);
-        await sharedPreferences.setBool('carrots', participation.allergens.carrots);
-
-        prefillInformation = participation;
-      }
-
-      return await accessGoogleSheetData(houseNumber, prefillInformation, client);
-
-    } finally {
-      // Close the HTTP client to release resources
-      client.close();
-    }
-  }
-
-  Future<DinnerInformation> accessGoogleSheetData(String? houseNumber, Participation? prefillInformation, AutoRefreshingAuthClient? client) async {
-
-    List<DinnerEvent> list = [];
-    var sharedPreferences = SharedPreferencesAsync();
-    houseNumber ??= await sharedPreferences.getString('houseNumber');
-
-    if(houseNumber == null) {
-      return DinnerInformation(list, null, null);
-    }
-
-    if(prefillInformation == null) {
-      int? adultCount = await sharedPreferences.getInt('adultCount');
-      if(adultCount != null) {
-        prefillInformation = Participation(
-            adultCount,
-            await sharedPreferences.getInt('childrenCount') ?? 0,
-            false,
-            Allergens(
-                await sharedPreferences.getBool('meat') ?? false,
-                await sharedPreferences.getBool('gluten') ?? false,
-                await sharedPreferences.getBool('lactose') ?? false,
-                await sharedPreferences.getBool('milk') ?? false,
-                await sharedPreferences.getBool('nuts') ?? false,
-                await sharedPreferences.getBool('freshFruit') ?? false,
-                await sharedPreferences.getBool('onions') ?? false,
-                await sharedPreferences.getBool('carrots') ?? false
-            )
-        );
-      }
-    }
-
-    bool closeClient = false;
-    if(client == null) {
-      extractIdFromUrl(url);
-
-      // Your Google Sheets API credentials
-      final credentials = ServiceAccountCredentials.fromJson({
-        'client_id': clientId,
-        // Your service account email
-        'client_email': clientEmail,
-        // Your private key
-        'private_key': privateKey,
-        // Google Sheets API scope
-        'scopes': [SheetsApi.spreadsheetsReadonlyScope],
-        'type': 'service_account'
-      });
-
-      client = await clientViaServiceAccount(
-          credentials, [SheetsApi.spreadsheetsReadonlyScope]);
-      closeClient = true;
-    }
-
-    // Google Sheets API instance
-    var sheets = SheetsApi(client);
-
-    try {
-      var response = await sheets.spreadsheets.values.get(spreadsheetId!, "KOK!A:AF", majorDimension: 'COLUMNS');
-
-      var dateColumn = response.values![0];
-      var daysBeforeColumn = response.values![3];
-      var timeOfDayBeforeColumn = response.values![4];
-      var houseColumn = response.values![5];
-
-      var menuColumn = response.values![23];
-
-      var participationRowResponse = await sheets.spreadsheets.values.get(spreadsheetId!, "$houseNumber!D:O");
-
-      for (int i=2;i<dateColumn.length && i<houseColumn.length;i++)
-      {
-        var date = getDate(dateColumn[i] as String);
-        if (houseColumn[i] as String != "" && nowIsBeforeOrSameDay(date))
-        {
-          Participation? p = getParticipation(participationRowResponse.values![i]);
-          bool editable = isEditable(date, int.parse(daysBeforeColumn[i] as String), int.parse(timeOfDayBeforeColumn[i] as String));
-
-          list.add(DinnerEvent(i, getDinnerEventDateAsString(date), menuColumn[i] as String, editable, getAllergensCook(response.values, i), p));
-        }
-      }
-
-      return DinnerInformation(list, houseNumber, prefillInformation);
-    } finally {
-      if(closeClient) {
-        // Close the HTTP client to release resources
-        client.close();
-      }
-    }
   }
 
   Participation? getParticipation(List<Object?> values)
@@ -298,8 +229,9 @@ kHEIoS0UqyZqdcMCZpaOo8o=
     return Allergens(meatAllergen, glutenAllergen, lactoseAllergen, milkAllergen, nutsAllergen, freshFruitAllergen, onionsAllergen, carrotsAllergen);
   }
 
-  bool nowIsBeforeOrSameDay(DateTime date) {
-    return DateTime.now().subtract(const Duration(days: 1)).isBefore(date);
+  bool isTodayOrInFuture(DateTime date) {
+    var yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return date.isAfter(yesterday);
   }
 
   Allergens getAllergensCook(List<List<Object?>>? values, int index) {
@@ -323,13 +255,16 @@ kHEIoS0UqyZqdcMCZpaOo8o=
         carrotsAllergenColumn[index] as String == "TRUE");
   }
 
-  bool isEditable(DateTime dinnerEventDate, int daysBefore, int hourOfDayBefore) {
-    var lastDayToEdit = dinnerEventDate.subtract(Duration(days: daysBefore));
-    var cutOfDate = DateTime(lastDayToEdit.year, lastDayToEdit.month, lastDayToEdit.day, hourOfDayBefore);
-    return DateTime.now().isBefore(cutOfDate);
+  bool isEditable(DateTime dinnerEventDate, Object? daysBeforeColumnData, Object? hourOfDayBeforeColumnData) {
+    int daysBefore = int.parse(daysBeforeColumnData as String);
+    int hourOfDayBefore = int.parse(hourOfDayBeforeColumnData as String);
+
+    var lastDateToEdit = dinnerEventDate.subtract(Duration(days: daysBefore));
+    var cutOfDateTime = DateTime(lastDateToEdit.year, lastDateToEdit.month, lastDateToEdit.day, hourOfDayBefore);
+    return DateTime.now().isBefore(cutOfDateTime);
   }
 
-  DateTime getDate(String dateStr) {
+  DateTime parseDate(String dateStr) {
     var dateSplit = dateStr.split("/");
     return DateTime.parse("${DateTime.now().year}-${dateSplit[1]}-${dateSplit[0]}");
   }
